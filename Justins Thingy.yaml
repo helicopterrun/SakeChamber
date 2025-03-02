@@ -1,0 +1,1135 @@
+#    Skunk Systems Environmental Control
+#    Version: 2024.09.3.5
+#    Developer: Christopher Horton
+#    GitHub:    @helicopterrun
+
+# substitutions (change these to make automatic updates to the code device & entity names)
+substitutions:
+  device_id: "skunk-systems-version-2"
+  device_name: "Skunk Systems Version 2"
+  default_drybulb: "68.0"
+  default_dewpoint: "55.8"
+  heatsink_pid_mode: "COOL" # change to "HEAT_COOL" if usng the TEC in bidirectional mode (default: "COOL")
+  drybulb_pid_mode: "HEAT_COOL" # change to "COOL" if not using aux heater (default: "HEAT_COOL")
+  dewpoint_pid_mode: "COOL" # change to "HEAT_COOL" if usng a humidifier (default: "COOL")
+  cooling_fan_speed: "100" # default fan speed: 100
+  circulation_fan_speed: "50" # default fan speed: 50
+
+# esphome config
+esphome:
+  name: $device_id # do not change this
+  friendly_name: $device_name  # do not change this
+  on_boot:
+    priority: -100
+    then:
+      # set defaults (set in substitutions)
+      - script.execute: return_to_default
+      # start TEC drivers
+      - script.execute: ti_driver_startup
+esp32:
+  board: mhetesp32minikit
+  framework:
+    type: arduino
+
+# enable logging
+logger:
+  level: INFO
+  
+
+# enable Home Assistant API
+api:
+
+# enable over the air updates
+ota:
+  - platform: esphome
+
+# wifi config
+wifi:
+  ssid: MrGorbachev
+  password: biscuts2
+#  manual_ip:
+#    static_ip: !secret: ss2_static_ip
+#    gateway: !secret: ss2_gateway_ip
+#    subnet:  !secret: ss2_subnet
+
+# i2c bus (dont change unless you know what you are doing)
+i2c:
+  id: i2c_bus_main
+  sda: 21
+  scl: 22
+  scan: true
+  frequency: 400khz
+  timeout: 10ms
+
+# one_wire bus (disabled by default, uncomment to enable)
+# one_wire:
+#   - platform: gpio
+#     pin: GPIO27
+
+# ADC configuration (for reading current)
+ads1115:
+  - address: 0x49 # i2c address
+
+# DAC configuration (for controlling drivers)
+mcp4728:
+  - id: dac_output
+    address: 0x60
+
+select:
+  - platform: template
+    name: Mode
+    id: mode
+    options:
+     - "Dry"
+     - "Cure"
+     - "Hold"
+    initial_option: "Dry"
+    optimistic: true
+    set_action:
+      - logger.log:
+          format: "Chosen option: %s"
+          args: ["x.c_str()"]
+
+# input numbers
+number:
+  # dry_stage_drybulb: "68"
+  - platform: template
+    name: "Dry Stage Dry Bulb"
+    id: d_stage_db
+    initial_value: 68.0
+    min_value: 0.0  # fixed universal range
+    max_value: 100.0  # fixed universal range
+    step: 0.5
+    icon: "mdi:thermometer"
+    optimistic: true
+    mode: box
+  # dry_stage_dewpoint: "54"
+  - platform: template
+    name: "Dry Stage Dew Point"
+    id: d_stage_dp
+    initial_value: 54.0
+    min_value: 0.0  # fixed universal range
+    max_value: 100.0  # fixed universal range
+    step: 0.5
+    icon: "mdi:thermometer"
+    optimistic: true
+    mode: box
+  # dry_stage_circ: "0.5"
+  - platform: template
+    name: "Dry Stage Air Circulation"
+    id: d_stage_circ
+    initial_value: 0.5
+    min_value: 0.0
+    max_value: 1.0
+    step: 0.1
+    icon: "mdi:fan"
+    optimistic: true
+    mode: box
+  # dry_stage_duration: "3" # days for cycle
+  - platform: template
+    name: "Dry Stage Duration"
+    id: d_stage_time
+    initial_value: 3
+    min_value: 0
+    max_value: 365
+    step: 1
+    icon: "mdi:calendar"
+    optimistic: true
+    mode: box
+  # dry_stage_ramp: "0"
+  - platform: template
+    name: "Dry Stage Ramp"
+    id: d_stage_ramp
+    initial_value: 0
+    min_value: 0.0
+    max_value: 1.0
+    step: 0.1
+    optimistic: true
+    mode: box
+  # cure_stage_drybulb: "68"
+  - platform: template
+    name: "Cure Stage Dry Bulb"
+    id: c_stage_db
+    initial_value: 68.0
+    min_value: 0.0  # fixed universal range
+    max_value: 100.0  # fixed universal range
+    step: 0.5
+    icon: "mdi:thermometer"
+    optimistic: true
+    mode: box
+  # cure_stage_dewpoint: "54"
+  - platform: template
+    name: "Cure Stage Dew Point"
+    id: c_stage_dp
+    initial_value: 54.0
+    min_value: 0.0  # fixed universal range
+    max_value: 100.0  # fixed universal range
+    step: 0.5
+    icon: "mdi:thermometer"
+    optimistic: true
+    mode: box
+  # cure_stage_circ: "0.5"
+  - platform: template
+    name: "Cure Stage Air Circulation"
+    id: c_stage_circ
+    initial_value: 0.5
+    min_value: 0.0
+    max_value: 1.0
+    step: 0.1
+    icon: "mdi:fan"
+    optimistic: true
+    mode: box
+  # cure_stage_duration: "3" # days for cycle
+  - platform: template
+    name: "Cure Stage Duration"
+    id: c_stage_time
+    initial_value: 3
+    min_value: 0
+    max_value: 365
+    step: 1
+    icon: "mdi:calendar"
+    optimistic: true
+    mode: box
+  # cure_stage_ramp: "0"
+  - platform: template
+    name: "Cure Stage Duration"
+    id: c_stage_ramp
+    initial_value: 0
+    min_value: 0.0
+    max_value: 1.0
+    step: 0.1
+    optimistic: true
+    mode: box
+
+  # hold_stage_drybulb: "68"
+  - platform: template
+    name: "Hold Stage Dry Bulb"
+    id: h_stage_db
+    initial_value: 68.0
+    min_value: 0.0  # fixed universal range
+    max_value: 100.0  # fixed universal range
+    step: 0.5
+    icon: "mdi:thermometer"
+    optimistic: true
+    mode: box
+  # hold_stage_dewpoint: "54"
+  - platform: template
+    name: "Hold Stage Dew Point"
+    id: h_stage_dp
+    initial_value: 54.0
+    min_value: 0.0  # fixed universal range
+    max_value: 100.0  # fixed universal range
+    step: 0.5
+    icon: "mdi:thermometer"
+    optimistic: true
+    mode: box
+  # hold_stage_circ: "0.5"
+  - platform: template
+    name: "Hold Stage Air Circulation"
+    id: h_stage_circ
+    initial_value: 0.5
+    min_value: 0.0
+    max_value: 1.0
+    step: 0.1
+    icon: "mdi:fan"
+    optimistic: true
+    mode: box
+  # hold_stage_duration: "3" # days for cycle
+  - platform: template
+    name: "Hold Stage Duration"
+    id: h_stage_time
+    initial_value: 3
+    min_value: 0
+    max_value: 365
+    step: 1
+    icon: "mdi:calendar"
+    optimistic: true
+    mode: box
+  # hold_stage_ramp: "0"
+  - platform: template
+    name: "Hold Stage Duration"
+    id: h_stage_ramp
+    initial_value: 0
+    min_value: 0.0
+    max_value: 1.0
+    step: 0.1
+    optimistic: true
+    mode: box
+
+  # Dewpoint Set Point
+  - platform: template
+    name: "Dewpoint Target"
+    id: dewpoint_setpoint
+    min_value: 0.0  # fixed universal range
+    max_value: 100.0  # fixed universal range
+    step: 0.01
+    icon: "mdi:thermometer"
+    optimistic: true
+    mode: box
+
+  # Drybulb Set Point
+  - platform: template
+    name: "Drybulb Target"
+    id: drybulb_setpoint
+    min_value: 0.0  # Fixed universal range
+    max_value: 100.0  # Fixed universal range
+    step: 0.01
+    icon: "mdi:thermometer"
+    optimistic: true
+    mode: box
+    
+  # relative humidity set point for calculation
+  - platform: template
+    name: "Relative Humidity Target"
+    id: rh_setpoint
+    min_value: 0
+    max_value: 100
+    step: 1
+    icon: mdi:water-percent
+    optimistic: true
+    device_class: humidity
+    mode: box
+
+  # Cold Heatsink Set Point
+  - platform: template
+    internal: true
+    id: cold_hs_setpoint
+    optimistic: true
+    min_value: 2.0
+    max_value: 20.0
+    step: 0.01
+
+  # Output Level
+  - platform: template
+    internal: true
+    id: tec_pl_number
+    optimistic: true
+    min_value: 0.0
+    max_value: 1.0
+    step: 0.01
+
+  # Max Current Level milliAmps
+  - platform: template
+    internal: true
+    id: pwm_max_current_number
+    optimistic: true
+    min_value: 0
+    max_value: 80
+    step: 1
+
+# Frost limit is the lowest temperature the system will target to prevent frost (default: 2.0°C)
+  - platform: template
+    name: Frost Limit
+    id: frost_limit
+    optimistic: true
+    initial_value: 2.0
+    min_value: 0.0
+    max_value: 10.0
+    step: 0.5
+    mode: box
+    
+# Cold Heatsink Range # Range above the dewpoint setpoint to take the target temperature (default: 2.0°C)
+  - platform: template
+    name: Heatsink Heating Range
+    id: cold_hs_up_range
+    optimistic: true
+    initial_value: 2.0
+    min_value: 0.0
+    max_value: 10.0
+    step: 0.5
+    mode: box
+    
+# Cold Heatsink Range # Range below the dewpoint setpoint to take the target temperature. negative number or zero.  (default: -10.0°C)
+  - platform: template
+    name: Heatsink Cooling Range
+    id: cold_hs_dn_range
+    optimistic: true
+    initial_value: -10.0
+    min_value: -15.0
+    max_value: 0.0
+    step: 0.5
+    mode: box
+    
+# Bias Temperature # Authority of drybulb on cold side temp when near dewpoint target. (default: 2°C)
+  - platform: template
+    name: Heatsink Bias
+    id: bias_range
+    optimistic: true
+    initial_value: 2.0
+    min_value: -10.0
+    max_value: 10.0
+    step: 0.5
+    mode: box
+    
+# Low Fan Speed # Lowest speed the fan will go when air is hot and wet(default: 0.05)
+  - platform: template
+    name: Lowest Fan Speed
+    id: low_speed
+    optimistic: true
+    initial_value: 0.05
+    min_value: 0.0
+    max_value: 1.0
+    step: 0.05
+    mode: box
+    
+binary_sensor:
+  - platform: template
+    device_class: problem
+    id: sponge_dry
+    name: Add Water
+
+sensor:
+  # Cold Fan Speed
+  - platform: template
+    name: "Cold Fan Speed"
+    id: cold_fan_speed
+    accuracy_decimals: 2
+    lambda: |-
+      float dry_action = id(dewpoint_cool_result).state;
+      float cool_action = id(drybulb_cool_result).state;
+      float fan_minimum = id(low_speed).state;
+      float fan_speed = 0.0;
+
+      if (cool_action <= 0.2 && dry_action > 0.2) {
+        fan_speed = fan_minimum;
+      }
+
+      else if (cool_action > 0.2 && dry_action <= 0.2) {
+        fan_speed = cool_action;
+      }
+
+      else if (cool_action <= 0.01 && dry_action <= 0.01) {
+        fan_speed = 0.0;
+      }
+
+      return fan_speed;
+      
+    update_interval: 20s
+    filters:
+      - round: 2
+      - clamp:
+          min_value: 0.0
+          max_value: 1.0
+    on_value:
+      then:
+        - output.set_level:
+            id: fan_cold
+            level: !lambda return id(cold_fan_speed).state;
+
+  # Cold Heatsink Target Calculation
+  - platform: template
+    name: "Cold Heatsink Target Calculation"
+    id: cold_calc
+    accuracy_decimals: 1
+    device_class: temperature
+    unit_of_measurement: "°C"
+    state_class: measurement
+    lambda: |-
+      float dp_error = id(dewpoint_error).state;
+      float mid_point = id(dewpoint_celcius).state;
+      float dp_dn_action = id(dewpoint_cool_result).state;
+      float dp_up_action = 1.0 - id(dewpoint_cool_result).state;
+      float cold_limit = std::max((mid_point + id(cold_hs_dn_range).state), id(frost_limit).state);
+      float hot_limit = mid_point + id(cold_hs_up_range).state;
+      float cool_action = id(drybulb_cool_result).state;
+      float bias_value = id(bias_range).state;
+      float range_up = hot_limit - mid_point;
+      float range_dn = mid_point - cold_limit;
+      float current_setpoint = id(cold_hs_setpoint).state;
+      float max_rate_of_change = 0.1;  // Uniform rate limit for all changes
+
+      float target_temp = mid_point;  // Default target temperature
+
+      // Determine the target temperature based on dewpoint error and control actions
+      if (dp_error < -0.5) {
+        target_temp = mid_point - range_dn * dp_dn_action;
+      } else if (dp_error >= -0.5 && dp_error <= 0.5) {
+        target_temp = mid_point - (range_dn * dp_dn_action + bias_value * cool_action);
+      } else if (dp_error > 0.5) {
+        target_temp = mid_point + range_up * cool_action;
+      }
+
+      // Apply a uniform rate limit (0.2°C per 10 seconds) to all changes
+      if (target_temp > current_setpoint) {
+        // Limit upward (warming) rate of change
+        return std::min(current_setpoint + max_rate_of_change, target_temp);
+      } else if (target_temp < current_setpoint) {
+        // Limit downward (cooling) rate of change
+        return std::max(current_setpoint - max_rate_of_change, target_temp);
+      } else {
+        // No change if the target is equal to the current setpoint
+        return current_setpoint;
+      }
+
+    update_interval: 10s
+    filters:
+      - round: 1
+    on_value:
+      then:
+        - number.set:
+            id: cold_hs_setpoint
+            value: !lambda return id(cold_calc).state;
+        - button.press: submit_cold_sp
+
+
+  # drybulb setpoint °C
+  - platform: template
+    name: "Drybulb Set Point"
+    id: drybulb_celcius
+    device_class: temperature
+    unit_of_measurement: "°C"
+    accuracy_decimals: 2
+    state_class: measurement
+    filters:
+      - round: 2
+    update_interval: never
+
+  # dewpoint setpoint °C
+  - platform: template
+    name: "Dewpoint Set Point"
+    id: dewpoint_celcius
+    device_class: temperature
+    unit_of_measurement: "°C"
+    accuracy_decimals: 2
+    state_class: measurement
+    filters:
+      - round: 2
+    update_interval: never
+
+  #PID Cool Result Dewpoint
+  - platform: pid
+    climate_id: pid_dewpoint
+    name: "Dewpoint Cool Result"
+    id: dewpoint_cool_result
+    type: COOL
+    filters:
+      - multiply: 0.01
+
+  #PID Cool Result Drybulb
+  - platform: pid
+    climate_id: pid_drybulb
+    name: "Drybulb Cool Result"
+    id: drybulb_cool_result
+    type: COOL
+    filters:
+      - multiply: 0.01
+
+  # Dew Point Error (Set Point - Process Variable)
+  - platform: template
+    id: dewpoint_error
+    lambda: |-
+      float dew_point = id(dewpoint).state;
+      float set_point = id(dewpoint_celcius).state;
+
+      float error = set_point - dew_point;
+      return error;
+    update_interval: 10s
+    on_value_range:
+      - below: 1.0
+        then:
+          - binary_sensor.template.publish:
+              id: sponge_dry
+              state: false
+      - above: 1.0
+        then:
+          - binary_sensor.template.publish:
+              id: sponge_dry
+              state: true
+
+  # Drybulb Error (Set Point - Process Variable)
+  - platform: template
+    id: drybulb_error
+    lambda: |-
+      float drybulb_temp = id(chamber_temp).state;
+      float set_point = id(drybulb_celcius).state;
+
+      float error = set_point - drybulb_temp;
+      return error;
+    update_interval: 10s
+
+  # TEC Current Sum
+  - platform: template
+    id: tec_current
+    name: Driver Current
+    lambda: |-
+      float driver_a = id(ipropi_a).state;
+      float driver_b = id(ipropi_b).state;
+
+      float sum_of = driver_a + driver_b;
+      return sum_of;
+    filters:
+      - round: 2
+    update_interval: 60s
+
+  # air VPD Calculation
+  - platform: template
+    name: "VPD"
+    id: air_vpd
+    unit_of_measurement: "kPa"
+    accuracy_decimals: 1
+    lambda: |-
+      float vpd = id(saturated_vapor_pressure).state - id(actual_vapor_pressure).state;
+      return vpd;
+    update_interval: 30s
+
+  # Saturated Vapor Pressure Calculation
+  - platform: template
+    name: "Saturated Vapor Pressure"
+    id: saturated_vapor_pressure
+    unit_of_measurement: "kPa"
+    accuracy_decimals: 3
+    lambda: |-
+      const float temperature = id(chamber_temp).state;
+
+      if (isnan(temperature)) {
+        return NAN;
+      }
+
+      const float es = 0.6108 * exp((17.27 * temperature) / (temperature + 237.3));
+
+      return es;
+    update_interval: 30s
+
+  # Template sensor for Actual Vapor Pressure (Ea)
+  - platform: template
+    name: "Vapor Pressure"
+    id: actual_vapor_pressure
+    unit_of_measurement: "kPa"
+    accuracy_decimals: 3
+    lambda: |-
+      const float temperature = id(chamber_temp).state;
+      const float humidity = id(chamber_rh).state;
+
+      if (isnan(temperature) || isnan(humidity)) {
+        return NAN;
+      }
+      const float es = 0.6108 * exp((17.27 * temperature) / (temperature + 237.3));
+      const float ea = es * (humidity / 100.0);
+      return ea;
+    filters:
+      - round: 3
+    update_interval: 10s
+
+  # Dew Point Temperature Calculation
+  - platform: template
+    name: "Dew Point"
+    id: dewpoint
+    device_class: temperature
+    unit_of_measurement: "°C"
+    accuracy_decimals: 2
+    state_class: measurement
+    lambda: |-
+      float avp = id(actual_vapor_pressure).state;
+      float avp_log_div = log(avp / 0.6108);
+
+      float dew_point = (237.3 * avp_log_div) / (17.27 - avp_log_div);
+
+      return dew_point;
+    filters:
+      - sliding_window_moving_average:
+          window_size: 6
+          send_every: 3
+          send_first_at: 3
+      - round: 2
+    update_interval: 10s
+
+  - platform: tmp117
+    name: "Cold Side Temperature"
+    id: cold_temp
+    address: 0x4B
+    device_class: temperature
+    unit_of_measurement: "°C"
+    accuracy_decimals: 2
+    state_class: measurement
+    filters:
+      - round: 2
+    update_interval: 10s
+
+  - platform: tmp117
+    name: "Hot Side Temperature"
+    address: 0x48
+    device_class: temperature
+    unit_of_measurement: "°C"
+    accuracy_decimals: 2
+    state_class: measurement
+    filters:
+      - round: 2
+    update_interval: 60s
+
+  - platform: bme280_i2c
+    address: 0x76
+    iir_filter: 16x
+    temperature:
+      name: "Ambient Temperature"
+    pressure:
+      name: "Ambient Pressure"
+    humidity:
+      name: "Ambient Humidity"
+    update_interval: 120s
+
+  - platform: sht3xd
+    temperature:
+      name: "Probe Temperature"
+      id: chamber_temp
+      accuracy_decimals: 2
+      filters:
+        - round: 2
+    humidity:
+      name: "Probe Humidity"
+      id: chamber_rh
+      accuracy_decimals: 2
+      filters:
+        - round: 2
+    address: 0X44
+    update_interval: 15s
+
+  - platform: ads1115
+    multiplexer: 'A0_GND'
+    gain: 6.144
+    id: ipropi_a
+    resolution: 12 bits
+    update_interval: 60s
+    filters:
+      - lambda: return x / 0.6825;
+
+  - platform: ads1115
+    multiplexer: 'A1_GND'
+    gain: 6.144
+    id: ipropi_b
+    resolution: 12 bits
+    update_interval: 60s
+    filters:
+      - lambda: return x / 0.6825;
+
+  - platform: ads1115
+    multiplexer: 'A2_GND'
+    gain: 4.096
+    id: vref_a_in
+    resolution: 12 bits
+    update_interval: 60s
+
+  - platform: ads1115
+    multiplexer: 'A3_GND'
+    gain: 4.096
+    id: vref_b_in
+    resolution: 12 bits
+    update_interval: 60s
+
+# Fan Tach Sensors
+# Hot Fan RPM
+  - platform: pulse_counter
+    pin:
+      number: 34
+      mode:
+        input: True
+    name: "Hot Fan RPM"
+    id: rpm_hot
+    unit_of_measurement: "RPM"
+    accuracy_decimals: 0
+    count_mode:
+      rising_edge: INCREMENT
+      falling_edge: DISABLE
+    filters:
+      - multiply: 0.5
+      - round: 2
+    update_interval: 1.5min
+
+# Cold Fan RPM
+  - platform: pulse_counter
+    pin:
+      number: 16
+      mode:
+        input: True
+    name: "Cold Fan RPM"
+    id: rpm_cold
+    unit_of_measurement: "RPM"
+    accuracy_decimals: 0
+    count_mode:
+      rising_edge: INCREMENT
+      falling_edge: DISABLE
+    filters:
+      - multiply: 0.5
+      - round: 2
+    update_interval: 30s
+
+# Circulation Fan RPM
+  - platform: pulse_counter
+    pin:
+      number: 35
+      mode:
+        input: True
+    name: "Circulation Fan RPM"
+    id: rpm_circ
+    unit_of_measurement: "RPM"
+    accuracy_decimals: 0
+    count_mode:
+      rising_edge: INCREMENT
+      falling_edge: DISABLE
+    filters:
+      - multiply: 0.5
+      - round: 2
+    update_interval: 1.5min
+
+# Output Pin Configuration
+output:
+  # tec outpout level
+  - platform: template
+    id: tec_output
+    type: float
+    write_action:
+      - number.set:
+          id: tec_pl_number
+          value: !lambda return state;
+      - button.press: set_pwm
+
+  # cold side fan
+  - platform: template
+    id: cold_fan_compensated_output
+    type: float
+    write_action:
+      - output.set_level:
+          id: fan_cold
+          level: !lambda return state;
+      - sensor.template.publish:
+          id: cold_fan_speed
+          state: !lambda return state;
+
+
+  # dewpoint pid output
+  - platform: template
+    id: dewpoint_pid_output
+    type: float
+    write_action:
+      - logger.log: "Dewpoint PID Output Changed"
+  - platform: template
+    id: dewpoint_pid_heat
+    type: float
+    write_action:
+      - logger.log: "Dewpoint PID Output Changed"
+
+  # nSleep
+  - platform: gpio
+    pin: GPIO26
+    id: nsleep_a
+
+  - platform: gpio
+    pin: GPIO18
+    id: nsleep_b
+
+  # pMODE
+  - platform: gpio
+    pin: GPIO19
+    id: p_mode
+
+  # DAC
+  - platform: mcp4728
+    id: vref_a_out
+    channel: A
+    vref: vdd
+
+  - platform: mcp4728
+    id: imode_a
+    channel: B
+    vref: internal
+    gain: X1
+
+  - platform: mcp4728
+    id: vref_b_out
+    channel: C
+    vref: vdd
+
+  - platform: mcp4728
+    id: imode_b
+    channel: D
+    vref: internal
+    gain: X1
+
+  # TEC Driver PWM channel
+  - platform: ledc
+    pin:
+      number: 13
+    frequency: 19531Hz
+    id: pwm_a
+
+  - platform: ledc
+    pin:
+      number: 33
+    frequency: 19531Hz
+    id: pwm_b
+
+  # Hot Fan PWM channel
+  - platform: ledc
+    pin:
+      number: 32
+    frequency: 25000 Hz
+    id: fan_hot
+
+  # Cold Fan PWM channel
+  - platform: ledc
+    pin:
+      number: 25
+    frequency: 25000 Hz
+    id: fan_cold
+
+  # Circulation Fan PWM channel
+  - platform: ledc
+    pin:
+      number: 17
+    frequency: 25000 Hz
+    id: fan_circ
+
+  # Heater Output Sigma Delta
+  - platform: sigma_delta_output
+    update_interval: 10s
+    id: heater_output
+    turn_on_action:
+      then:
+        - switch.turn_on: heat
+    turn_off_action:
+      then:
+        - switch.turn_off: heat
+
+# switch config
+switch:
+  # chamber heat
+  - platform: gpio
+    pin: GPIO12
+    name: "Chamber Heat"
+    id: heat
+    inverted: true
+
+  # °F/°C toggle (on for Fahrenheit)
+  - platform: template
+    name: "Use Fahrenheit"
+    id: use_fahrenheit
+    icon: "mdi:thermometer"
+    optimistic: true
+    restore_mode: RESTORE_DEFAULT_ON
+    on_turn_on:
+    - number.set:
+        id: drybulb_setpoint
+        value: !lambda |-
+          return round((id(drybulb_celcius).state * 9/5) + 32);
+    - number.set:
+        id: dewpoint_setpoint
+        value: !lambda |-
+          return round((id(dewpoint_celcius).state * 9/5) + 32);
+    - logger.log: "Units changed to °F"
+    on_turn_off:
+    - number.set:
+        id: drybulb_setpoint
+        value: !lambda |-
+          return id(drybulb_celcius).state;
+    - number.set:
+        id: dewpoint_setpoint
+        value: !lambda |-
+          return id(dewpoint_celcius).state;
+    - logger.log: "Units changed to °C"
+
+button:
+# calculate dewpoint set point from relative humidity and temperature # set temperature first
+  - platform: template
+    name: "Calculate Dewpoint"
+    id: calculate_dewpoint
+    icon: mdi:water-percent
+    on_press:
+      then:
+        - number.set:
+            id: dewpoint_setpoint
+            value: !lambda |-
+              const float temperature = id(drybulb_setpoint).state;
+              const float humidity = id(rh_setpoint).state;
+              const float es = 0.6108 * exp((17.27 * temperature) / (temperature + 237.3));
+              const float avp = es * (humidity / 100.0);
+              float avp_log_div = log(avp / 0.6108);
+              float dew_point = (237.3 * avp_log_div) / (17.27 - avp_log_div);
+              return round(dew_point);
+
+# Send Setpoint to Cold Heatsink PID controller
+  - platform: template
+    id: submit_cold_sp
+    icon: "mdi:emoticon-outline"
+    on_press:
+      then:
+        - climate.control:
+            id: pid_cold
+            mode: COOL
+            target_temperature: !lambda |-
+              return id(cold_hs_setpoint).state;
+
+# submit setpoint values
+  - platform: template
+    name: "Submit Setpoints"
+    id: submit_values
+    icon:  mdi:check
+    on_press:
+      then:
+        # run script
+        - script.execute: setpoints_return
+
+  - platform: template
+    id: apply_current_settings
+    on_press:
+      then:
+        - output.set_level:
+            id: vref_a_out
+            level: !lambda |-
+              return (id(pwm_max_current_number).state * 0.0076);
+        - output.set_level:
+            id: vref_b_out
+            level: !lambda |-
+              return (id(pwm_max_current_number).state * 0.0076);
+
+  - platform: template
+    id: set_pwm
+    icon: mdi:check
+    on_press:
+      then:
+        - output.set_level:
+            id: pwm_a
+            level: !lambda |-
+              return id(tec_pl_number).state / 2;
+        - output.set_level:
+            id: pwm_b
+            level: !lambda |-
+              return id(tec_pl_number).state / 2;
+
+
+fan:
+
+  - platform: speed
+    output: fan_hot
+    name: External Fan PWM
+    id: ext_fan
+
+  - platform: speed
+    output: fan_circ
+    name: Circulation Fan PWM
+    id: circ_fan
+
+climate:
+  - platform: pid
+    id: pid_cold
+    name: "PID Cold Heatsink Temperature"
+    sensor: cold_temp
+    default_target_temperature: 12.22°C
+    cool_output: tec_output
+    control_parameters:
+      kp: 0.45694
+      ki: 0.00737
+      kd: 7.08259
+
+  - platform: pid
+    id: pid_drybulb
+    name: "PID Dry Bulb Temperature"
+    sensor: chamber_temp
+    default_target_temperature: 20°C
+    cool_output: cold_fan_compensated_output
+    heat_output: heater_output
+    control_parameters:
+      kp: 0.80701
+      ki: 0.00215
+      kd: 75.85897
+
+  - platform: pid
+    id: pid_dewpoint
+    name: "PID Dew Point"
+    sensor: dewpoint
+    default_target_temperature: 12.22°C
+    cool_output: dewpoint_pid_output
+    control_parameters:
+      kp: 0.60153
+      ki: 0.00096
+      kd: 93.83873
+
+# scripts
+script:
+  - id: ti_driver_startup
+    then:
+      # (TEC drivers) pull nSLEEP low to prepare for IMODE setup
+      - output.turn_off: nsleep_a
+      - output.turn_off: nsleep_b
+      - delay: 100ms  # conservative delay to ensure stability
+      # (TEC drivers) set pMODE
+      - output.turn_on: p_mode  # Sets PMODE high for PWM mode
+      # (TEC drivers) set iMODE levels
+      - output.set_level:
+          id: imode_a
+          level: 0%  # gnd
+      - output.set_level:
+          id: imode_b
+          level: 0%  # gnd
+      # (TEC drivers) pull nSLEEP high to latch IMODE and enable the device
+      - output.turn_on: nsleep_a
+      - output.turn_on: nsleep_b
+      # (TEC drivers) set max current per channel to 80%
+      - number.set:
+          id: pwm_max_current_number
+          value: 80 # (default: 80) or ~1 amp per channel
+      - button.press: apply_current_settings
+      # (TEC drivers) set PWM to 0%
+      - number.set:
+          id: tec_pl_number
+          value: 0.0 # startup with cooling set to idle
+      - button.press: set_pwm
+
+  - id: return_to_default
+    then:
+      # set to °F
+      - switch.turn_on: use_fahrenheit
+      # start cooling fan
+      - fan.turn_on:
+          id: ext_fan
+          speed: $cooling_fan_speed
+      # start circulation fan
+      - fan.turn_on:
+          id: circ_fan
+          speed: $circulation_fan_speed
+      # set default target chamber temp to 68°F (change as needed in °C)
+      - number.set:
+          id: drybulb_setpoint
+          value: $default_drybulb # default: 20.0°C (68°F)
+      # set default target chamber dewpoint to 54°F (change as needed in °C)
+      - number.set:
+          id: dewpoint_setpoint
+          value: $default_dewpoint # default: 12.22°C (54°F)
+      # set setpoints and adjust pid controllers
+      - button.press: submit_values
+
+  - id: setpoints_return
+    then:
+      # Publish Dewpoint Setpoint in Celsius or Fahrenheit
+      - sensor.template.publish:
+          id: dewpoint_celcius
+          state: !lambda |-
+            float dp_sp_unitless = id(dewpoint_setpoint).state;
+            if (id(use_fahrenheit).state) {
+              return (dp_sp_unitless - 32.0) * 5 / 9;
+            } else {
+              return dp_sp_unitless;
+            }
+
+      # Publish Drybulb Setpoint in Celsius or Fahrenheit
+      - sensor.template.publish:
+          id: drybulb_celcius
+          state: !lambda |-
+            float db_sp_unitless = id(drybulb_setpoint).state;
+            if (id(use_fahrenheit).state) {
+              return (db_sp_unitless - 32.0) * 5 / 9;
+            } else {
+              return db_sp_unitless;
+            }
+
+      # Control Dewpoint PID Controller
+      - climate.control:
+          id: pid_dewpoint
+          mode: $dewpoint_pid_mode
+          target_temperature: !lambda |-
+            return id(dewpoint_celcius).state;
+
+      # Control Drybulb PID Controller
+      - climate.control:
+          id: pid_drybulb
+          mode: $drybulb_pid_mode
+          target_temperature: !lambda |-
+            return id(drybulb_celcius).state;
