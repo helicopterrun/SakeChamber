@@ -8,7 +8,7 @@ substitutions:
   device_id: "skunk-systems-version-2"
   device_name: "Skunk Systems Version 2"
   default_drybulb: "41.0"
-  default_dewpoint: "34"
+  default_dewpoint: "34.0"
   heatsink_pid_mode: "COOL" # change to "HEAT_COOL" if usng the TEC in bidirectional mode (default: "COOL")
   drybulb_pid_mode: "HEAT_COOL" # change to "COOL" if not using aux heater (default: "HEAT_COOL")
   dewpoint_pid_mode: "COOL" # change to "HEAT_COOL" if usng a humidifier (default: "COOL")
@@ -61,9 +61,9 @@ i2c:
   timeout: 10ms
 
 # one_wire bus (disabled by default, uncomment to enable)
- one_wire:
-   - platform: gpio
-     pin: GPIO27
+one_wire:
+  - platform: gpio
+    pin: GPIO27
 
 # ADC configuration (for reading current)
 ads1115:
