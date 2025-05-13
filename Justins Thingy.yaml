@@ -632,10 +632,10 @@ sensor:
       - round: 2
     update_interval: 10s
 
-  - platform: tmp117
+  - platform: dallas_temp
     name: "Cold Side Temperature"
     id: cold_temp
-    address: 0x4B
+    address: 0x35482f0087c5a728
     device_class: temperature
     unit_of_measurement: "°C"
     accuracy_decimals: 2
@@ -644,9 +644,9 @@ sensor:
       - round: 2
     update_interval: 10s
 
-  - platform: tmp117
+  - platform: dallas_temp
     name: "Hot Side Temperature"
-    address: 0x48
+    address: 0x48759500879e6f28
     device_class: temperature
     unit_of_measurement: "°C"
     accuracy_decimals: 2
