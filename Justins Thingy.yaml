@@ -13,7 +13,7 @@ substitutions:
   drybulb_pid_mode: "HEAT_COOL" # change to "COOL" if not using aux heater (default: "HEAT_COOL")
   dewpoint_pid_mode: "COOL" # change to "HEAT_COOL" if usng a humidifier (default: "COOL")
   cooling_fan_speed: "100" # default fan speed: 100
-  circulation_fan_speed: "0" # default fan speed: 50
+  circulation_fan_speed: "50" # default fan speed: 50
 
 # esphome config
 esphome:
