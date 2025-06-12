@@ -1066,7 +1066,7 @@ script:
       # (TEC drivers) set max current per channel to 80%
       - number.set:
           id: pwm_max_current_number
-          value: 80 # (default: 80) or ~1 amp per channel
+          value: 4.0
       - button.press: apply_current_settings
       # (TEC drivers) set PWM to 0%
       - number.set:
