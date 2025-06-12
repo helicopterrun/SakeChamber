@@ -313,8 +313,8 @@ number:
     id: pwm_max_current_number
     optimistic: true
     min_value: 0
-    max_value: 80
-    step: 1
+    max_value: 5.0
+    step: 0.1
 
 # Frost limit is the lowest temperature the system will target to prevent frost (default: 2.0°C)
   - platform: template
@@ -973,11 +973,13 @@ button:
         - output.set_level:
             id: vref_a_out
             level: !lambda |-
-              return (id(pwm_max_current_number).state * 0.0076);
+              // ITRIP (A) × 0.6825 gives VREF in volts
+              return id(pwm_max_current_number).state * 0.6825 / 5.0;
         - output.set_level:
             id: vref_b_out
             level: !lambda |-
-              return (id(pwm_max_current_number).state * 0.0076);
+              // ITRIP (A) × 0.6825 gives VREF in volts
+              return id(pwm_max_current_number).state * 0.6825 / 5.0;
 
   - platform: template
     id: set_pwm
