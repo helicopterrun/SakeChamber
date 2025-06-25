@@ -974,12 +974,12 @@ button:
             id: vref_a_out
             level: !lambda |-
               // ITRIP (A) × 0.6825 gives VREF in volts
-              return id(pwm_max_current_number).state * 0.6825 / 5.0;
+              return id(pwm_max_current_number).state * 0.7467 / 5.0;
         - output.set_level:
             id: vref_b_out
             level: !lambda |-
               // ITRIP (A) × 0.6825 gives VREF in volts
-              return id(pwm_max_current_number).state * 0.6825 / 5.0;
+              return id(pwm_max_current_number).state * 0.7467 / 5.0;
 
   - platform: template
     id: set_pwm
@@ -989,11 +989,11 @@ button:
         - output.set_level:
             id: pwm_a
             level: !lambda |-
-              return id(tec_pl_number).state / 2;
+              return id(tec_pl_number).state;
         - output.set_level:
             id: pwm_b
             level: !lambda |-
-              return id(tec_pl_number).state / 2;
+              return id(tec_pl_number).state;
 
 
 fan:
