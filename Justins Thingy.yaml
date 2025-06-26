@@ -1067,11 +1067,6 @@ script:
       # (TEC drivers) pull nSLEEP high to latch IMODE and enable the device
       - output.turn_on: nsleep_a
       - output.turn_on: nsleep_b
-      # (TEC drivers) set max current per channel to 80%
-      - number.set:
-          id: pwm_max_current_number
-          value: 4.0
-      - button.press: apply_current_settings
       # (TEC drivers) set PWM to 0%
       - number.set:
           id: tec_pl_number
